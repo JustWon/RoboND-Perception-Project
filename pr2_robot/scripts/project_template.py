@@ -25,6 +25,11 @@ from rospy_message_converter import message_converter
 import yaml
 
 
+from helper_segmentation import *
+from helper_clustering import *
+from helper_recognition import *
+
+
 # Helper function to get surface normals
 def get_normals(cloud):
     get_normals_prox = rospy.ServiceProxy('/feature_extractor/get_normals', GetNormals)
@@ -51,49 +56,41 @@ def pcl_callback(pcl_msg):
 
 # Exercise-2 TODOs:
 
-    # TODO: Convert ROS msg to PCL data
-    
-    # TODO: Statistical Outlier Filtering
-
-    # TODO: Voxel Grid Downsampling
-
-    # TODO: PassThrough Filter
-
-    # TODO: RANSAC Plane Segmentation
-
-    # TODO: Extract inliers and outliers
-
-    # TODO: Euclidean Clustering
-
-    # TODO: Create Cluster-Mask Point Cloud to visualize each cluster separately
+    cloud_table, cloud_objects = execute_segmentation(pcl_msg)
+    white_cloud, cluster_cloud, cluster_indices = execute_clustering(cloud_objects)
 
     # TODO: Convert PCL data to ROS messages
+    ros_cloud_table = pcl_to_ros(cloud_table)
+    ros_cloud_objects = pcl_to_ros(cloud_objects)
+    ros_cluster_cloud_objects = pcl_to_ros(cluster_cloud)
+
 
     # TODO: Publish ROS messages
+    pcl_objects_pub.publish(ros_cloud_objects)
+    pcl_table_pub.publish(ros_cloud_table)
+    pcl_cluster_pub.publish(ros_cluster_cloud_objects)
 
-# Exercise-3 TODOs:
+# Exercise-3 TODOs: 
 
-    # Classify the clusters! (loop through each detected cluster one at a time)
+    detected_objects = execute_recognition(
+        clf,
+        scaler,
+        encoder,
+        object_markers_pub,
+        cloud_objects,
+        cluster_indices,
+        white_cloud
+    )
 
-        # Grab the points for the cluster
-
-        # Compute the associated feature vector
-
-        # Make the prediction
-
-        # Publish a label into RViz
-
-        # Add the detected object to the list of detected objects.
-
-    # Publish the list of detected objects
+    detected_objects_pub.publish(detected_objects)
 
     # Suggested location for where to invoke your pr2_mover() function within pcl_callback()
     # Could add some logic to determine whether or not your object detections are robust
     # before calling pr2_mover()
-    try:
-        pr2_mover(detected_objects_list)
-    except rospy.ROSInterruptException:
-        pass
+    # try:
+    #     pr2_mover(detected_objects)
+    # except rospy.ROSInterruptException:
+    #     pass
 
 # function to load parameters and request PickPlace service
 def pr2_mover(object_list):
@@ -137,14 +134,53 @@ def pr2_mover(object_list):
 if __name__ == '__main__':
 
     # TODO: ROS node initialization
+    rospy.init_node('clustering', anonymous=True)
 
     # TODO: Create Subscribers
+    pcl_sub = rospy.Subscriber(
+        '/pr2/world/points', 
+        pc2.PointCloud2, 
+        pcl_callback, 
+        queue_size=1
+    )
 
     # TODO: Create Publishers
+    pcl_objects_pub = rospy.Publisher(
+        '/pcl_objects', 
+        PointCloud2, 
+        queue_size=1
+    )
+
+    pcl_table_pub = rospy.Publisher(
+        '/pcl_table', 
+        PointCloud2, 
+        queue_size=1
+    )
+
+    pcl_cluster_pub = rospy.Publisher(
+        '/pcl_cluster', 
+        PointCloud2, 
+        queue_size=1
+    )
+
+    object_markers_pub = rospy.Publisher(
+        '/object_markers', 
+        Marker, 
+        queue_size=1
+    )
+
+    detected_objects_pub = rospy.Publisher(
+        '/detected_objects', 
+        DetectedObjectsArray, 
+        queue_size=1
+    )
 
     # TODO: Load Model From disk
+    clf, encoder, scaler = load_prediction_model()
 
     # Initialize color_list
     get_color_list.color_list = []
 
     # TODO: Spin while node is not shutdown
+    while not rospy.is_shutdown():
+        rospy.spin()
