@@ -2,7 +2,7 @@
 import pcl
 from sensor_stick.pcl_helper import *
 
-def kd_tree_clustering(white_cloud, tree, size_min = 10, size_max = 4000, tolerance = 0.05):
+def kd_tree_clustering(white_cloud, tree, size_min = 50, size_max = 3000, tolerance = 0.025):
     ec = white_cloud.make_EuclideanClusterExtraction()
     ec.set_ClusterTolerance(tolerance)
     ec.set_MinClusterSize(size_min)
